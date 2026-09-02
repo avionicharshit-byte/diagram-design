@@ -1,0 +1,106 @@
+name: Auto Version Bump
+
+# Post-merge release automation (ADR 0009): pull requests never touch the
+# plugin manifest versions; this workflow bumps them on main after each merge.
+# Rapid consecutive merges may coalesce into a single bump — versions still
+# strictly increase, which is the only property installs depend on.
+
+on:
+  push:
+    branches: [ main ]
+
+permissions:
+  contents: write
+  pull-requests: read
+
+# Serialize bump runs. A pending run superseded by a newer push simply lets
+# that newer run bump once for both merges.
+concurrency:
+  group: auto-bump-main
+  cancel-in-progress: false
+
+env:
+  PYTHONIOENCODING: utf-8
+  PYTHONUTF8: "1"
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      # AUTO_BUMP_TOKEN must be a fine-grained PAT with contents read/write,
+      # owned by an actor allowed to push past the branch protection's
+      # required status checks. The default GITHUB_TOKEN cannot push to main.
+      - name: Checkout latest main
+        uses: actions/checkout@v7
+        with:
+          ref: main
+          fetch-depth: 0
+          token: ${{ secrets.AUTO_BUMP_TOKEN || github.token }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      # Skip when the tip of main already carries a version change (a manual
+      # bump, or this workflow's own commit racing a queued run).
+      - name: Check whether main already bumped
+        id: guard
+        shell: bash
+        run: |
+          if git rev-parse --verify --quiet HEAD^ >/dev/null \
+            && ! git diff --quiet HEAD^ HEAD -- \
+              .claude-plugin/plugin.json \
+              .codex-plugin/plugin.json \
+              .factory-plugin/plugin.json; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # release:minor / release:major labels on the merged pull request select
+      # the bump size; everything else is a patch.
+      - name: Determine bump size from the merged pull request
+        if: steps.guard.outputs.skip == 'false'
+        id: part
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          labels=$(gh api "repos/${{ github.repository }}/commits/${{ github.sha }}/pulls" \
+            --jq '[.[].labels[].name] | join(" ")' 2>/dev/null || echo "")
+          flag=""
+          case " $labels " in
+            *" release:major "*) flag="--major" ;;
+            *" release:minor "*) flag="--minor" ;;
+          esac
+          echo "flag=$flag" >> "$GITHUB_OUTPUT"
+
+      - name: Bump plugin manifests
+        if: steps.guard.outputs.skip == 'false'
+        shell: bash
+        run: python3 scripts/bump-plugin-version.py ${{ steps.part.outputs.flag }}
+
+      - name: Verify the bumped package
+        if: steps.guard.outputs.skip == 'false'
+        shell: bash
+        run: python3 scripts/verify-plugin-package.py "${{ github.sha }}"
+
+      - name: Commit and push the bump
+        if: steps.guard.outputs.skip == 'false'
+        shell: bash
+        run: |
+          version=$(python3 -c "import json; print(json.load(open('.claude-plugin/plugin.json'))['version'])")
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            .claude-plugin/plugin.json \
+            .codex-plugin/plugin.json \
+            .factory-plugin/plugin.json \
+            skills/diagram-design/SKILL.md
+          git commit -m "chore(release): bump plugin manifests to ${version}"
+          # Tolerate one racing merge: replay the bump commit on the new tip.
+          git pull --rebase origin main
+          git push origin HEAD:main

@@ -27,21 +27,13 @@ See [README.md](README.md) for the full picture, including the design system and
 
 Every validation gate below must pass before a PR is ready. They also run automatically as GitHub Actions CI (`.github/workflows/ci.yml`).
 
-Every PR changes the distributed plugin package, including documentation- and CI-only PRs. Increment both native manifests together before opening or updating a PR:
-
-```bash
-python3 scripts/bump-plugin-version.py          # patch (default)
-python3 scripts/bump-plugin-version.py --minor  # minor release
-python3 scripts/bump-plugin-version.py --major  # major release
-```
-
-The helper refuses to run if the Claude, Codex, and Factory versions already differ. If another release lands on `main` first, rebase and bump again so your version remains greater than the new base.
+**Do not bump the plugin version in your PR.** The Claude, Codex, and Factory manifest versions are bumped automatically on `main` after each merge by the Auto Version Bump workflow (`.github/workflows/auto-bump.yml`, ADR 0009), so pull requests must leave all three `plugin.json` versions untouched — CI rejects any change to them. This keeps open PRs from conflicting with each other on every merge. If your change warrants more than a patch release, say so in the PR description and the maintainer will apply the `release:minor` or `release:major` label before merging; the label selects the bump size. (`scripts/bump-plugin-version.py` still exists for the workflow and the maintainer — contributors never need to run it.)
 
 | What it checks | Command |
 |---|---|
 | Plugin bump helper and adversarial package cases | `python3 scripts/test-plugin-package.py` |
 | Maintainer policy matches native manifests and current CI gates | `python3 scripts/test-maintainer-policy.py` |
-| Synchronized, increasing versions; valid marketplace paths; packaged skill | `python3 scripts/verify-plugin-package.py origin/main` |
+| Manifest versions untouched and synchronized; valid marketplace paths; packaged skill | `python3 scripts/verify-plugin-package.py --require-no-bump origin/main` |
 | Claude marketplace and plugin schema, with warnings treated as errors | `claude plugin validate . --strict` |
 | Accessible SVG contract (unit tests for the a11y linter) | `python3 scripts/test-lint-a11y.py` |
 | Semantic-pattern routing | `python3 scripts/verify-semantic-motion.py --markdown-only` |
@@ -91,7 +83,7 @@ Run them all at once before pushing:
 ```bash
 python3 scripts/test-plugin-package.py \
   && python3 scripts/test-maintainer-policy.py \
-  && python3 scripts/verify-plugin-package.py origin/main \
+  && python3 scripts/verify-plugin-package.py --require-no-bump origin/main \
   && claude plugin validate . --strict \
   && python3 scripts/test-lint-a11y.py \
   && python3 scripts/verify-semantic-motion.py --markdown-only \
@@ -139,7 +131,7 @@ python3 scripts/test-plugin-package.py \
 
 ### If a gate fails
 
-- **`verify-plugin-package.py`:** run the bump helper if the versions did not increase. If packaging validation fails, keep both marketplaces pointed at the repository root and keep the shared skill at `skills/diagram-design/SKILL.md`.
+- **`verify-plugin-package.py`:** if it reports a version change, drop the manifest edits from your branch — versions are bumped on `main` after merge, never in a PR. If packaging validation fails, keep both marketplaces pointed at the repository root and keep the shared skill at `skills/diagram-design/SKILL.md`.
 - **`lint-skin.py`:** the failure message names the file, line, and category (`color`, `font-family`, `a11y`, `external-asset`, `pure-black`, `script`). Colors must come from the palette in `skills/diagram-design/references/style-guide.md`; fonts from the allowed list; diagrams must satisfy the accessible SVG contract (see below). The linter also requires the SHA-pinned controller from `template-motion.html` verbatim and rejects remote resources, CSS `@import`, non-fragment CSS `url()`, event handlers, `srcdoc`, executable URLs, and extra scripts.
 - **`verify-*.py`:** the extractor's real behavior no longer matches its fixture or the documentation, or the reference/command/prompt wiring drifted. Fix the source of truth — do not widen a test to avoid a failure.
 - **`verify-screenshot-freshness.py`:** a canonical minimal-light example or its committed PNG changed without a synchronized catalog refresh. Before the first regeneration, install the renderer with `python3 -m pip install playwright && python3 -m playwright install chromium`. Then run `python3 scripts/render-canonical-screenshots.py`, inspect all 39 renders, and commit the updated PNGs plus `docs/screenshots/manifest.json`.
@@ -189,7 +181,7 @@ Motion is opt-in. Start from `skills/diagram-design/assets/template-motion.html`
 
 ## Design decisions (ADRs)
 
-Settled policies live as short records in `docs/adr/` — one pinned motion controller, semantic patterns never expanding the visual-type taxonomy, the reveal-only autoplay rule, the SKILL.md byte cap with its trigger-rich description requirement, and geometric label placement being verified rather than reviewed. Read the relevant ADR before proposing a change that touches one; when a PR settles a new policy, add an ADR in the same PR.
+Settled policies live as short records in `docs/adr/` — one pinned motion controller, semantic patterns never expanding the visual-type taxonomy, the reveal-only autoplay rule, the SKILL.md byte cap with its trigger-rich description requirement, geometric label placement being verified rather than reviewed, and plugin versions being bumped on `main` after merge rather than in PRs. Read the relevant ADR before proposing a change that touches one; when a PR settles a new policy, add an ADR in the same PR.
 
 ## Adding a new diagram type
 
