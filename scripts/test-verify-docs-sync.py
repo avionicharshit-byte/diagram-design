@@ -58,6 +58,20 @@ def load_verify_module():
 def main() -> int:
     verify = load_verify_module()
 
+    for length in (1024, 1025):
+        errors: list[str] = []
+        markdown = f"---\nname: fixture\ndescription: {'x' * length}\n---\n"
+        verify.check_description_length(errors, markdown)
+        if length == 1024 and errors:
+            raise AssertionError(f"1024-character description failed: {errors}")
+        if length == 1025:
+            expected = (
+                "SKILL.md frontmatter description exceeds the Agent Skills limit "
+                "(1025 > 1024 characters)"
+            )
+            if errors != [expected]:
+                raise AssertionError(f"oversized description was not rejected: {errors}")
+
     errors: list[str] = []
     verify.check_onboarding_trust_boundary(
         errors,

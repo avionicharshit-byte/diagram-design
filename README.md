@@ -14,7 +14,7 @@
 
 *New in 2.5.10: ten more layout grammars — Sankey, fishbone, Wardley map, kanban, user journey, deployment, dependency graph, UML class, story map, and database schema.*
 
-39 editorial diagram types for Claude Code, Codex, Factory Droid, and Pi. Self-contained HTML + SVG. No shadows. No Mermaid slop. Semantic patterns describe behavior separately from layout, so a queue, policy trace, or trust boundary can use the nearest existing type without expanding the type count. Static HTML remains the default; optional motion is available for ordered explanations. The skill also redraws draw.io or Mermaid sources at a chosen format, size, and detail level.
+39 editorial diagram types for Claude Code, Codex, Factory Droid, Pi, and Agent Skills-compatible hosts. Self-contained HTML + SVG. No shadows. No Mermaid slop. Semantic patterns describe behavior separately from layout, so a queue, policy trace, or trust boundary can use the nearest existing type without expanding the type count. Static HTML remains the default; optional motion is available for ordered explanations. The skill also redraws draw.io or Mermaid sources at a chosen format, size, and detail level.
 
 No Figma. No generic rounded boxes. No 30-minute color-picking sessions.
 
@@ -147,6 +147,16 @@ pi install https://github.com/cathrynlavery/diagram-design
 
 Run `/reload` in an open Pi session. Pi makes the skill available for matching diagram requests; use `/skill:diagram-design` to invoke it explicitly. Pi also loads the `/export-diagram`, `/import-mermaid`, `/profile`, and `/doctor` prompt templates. The unpinned Git install is intentional: Pi has no automatic package refresh, so run `pi update --extensions` to pull merged updates.
 
+**Kiro:** Import the Agent Skill from the repository subdirectory URL:
+
+```text
+https://github.com/cathrynlavery/diagram-design/tree/main/skills/diagram-design
+```
+
+Kiro copies imported skills into `.kiro/skills/` for a workspace or `~/.kiro/skills/` globally, so re-import the URL to pick up updates. Custom agents that declare resources should include `skill://diagram-design/**/SKILL.md`.
+
+**OpenCode:** Copy or symlink `skills/diagram-design/` to `.opencode/skills/diagram-design` in a project or `~/.config/opencode/skills/diagram-design` globally. OpenCode has no Diagram Design marketplace package; copied installs update only when you replace the directory from a newer checkout.
+
 > **One-time migration:** an existing standalone `npx skills add` copy will not start following the Codex marketplace automatically. Remove that standalone copy, then use the Codex marketplace commands above. Likewise, uninstall a personal Cowork copy and reinstall Diagram Design from your organization's marketplace. Future marketplace version bumps then flow through each client's native update path.
 
 ### Editable install
@@ -161,6 +171,14 @@ pi install ~/code/diagram-design
 
 # Claude Code: symlink the inner skill
 ln -s ~/code/diagram-design/skills/diagram-design ~/.claude/skills/diagram-design
+
+# Other Agent Skills hosts: create only the roots you use
+mkdir -p ~/.agents/skills ~/.cursor/skills ~/.cline/skills ~/.kiro/skills ~/.config/opencode/skills
+ln -s ~/code/diagram-design/skills/diagram-design ~/.agents/skills/diagram-design
+ln -s ~/code/diagram-design/skills/diagram-design ~/.cursor/skills/diagram-design
+ln -s ~/code/diagram-design/skills/diagram-design ~/.cline/skills/diagram-design
+ln -s ~/code/diagram-design/skills/diagram-design ~/.kiro/skills/diagram-design
+ln -s ~/code/diagram-design/skills/diagram-design ~/.config/opencode/skills/diagram-design
 ```
 
 The shared skill lives at `skills/diagram-design/`. Pi discovers it through the repo's standard `skills/` package directory; Claude Code, Codex, Factory Droid, and other Agent Skills-compatible tools use the same files.
@@ -245,6 +263,8 @@ xdg-open skills/diagram-design/assets/index.html  # Linux
 # (branching refresh uses the ALT combined-fragment grammar in type-sequence.md;
 #  see skills/diagram-design/assets/example-sequence-oauth.html — not a full authorize-code handshake)
 ```
+
+Operator recipes for editable installs, first diagrams, brand setup, import, export, validation, Windows junctions, and reusable prompts live in [`docs/cookbook.md`](docs/cookbook.md).
 
 Your agent will pick the right type, build the HTML, and save it. You can also start from a template directly:
 
@@ -437,6 +457,7 @@ diagram-design/
 │       ├── sample-flowchart.mmd
 │       ├── sample-readme-with-mermaid.md
 │       └── sample-adversarial.mmd
+├── docs/cookbook.md                 — operator recipes for editable installs and common tasks
 ├── docs/adr/                        — short records of settled design decisions
 ├── docs/screenshots/                — full-resolution images + source-digest manifest.json
 └── docs/screenshots/thumbs/         — generated WebP previews the README renders

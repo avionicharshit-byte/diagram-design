@@ -44,6 +44,7 @@ ONBOARDING_REFERENCE = ROOT / "skills/diagram-design/references/onboarding.md"
 LINE_DARK_EXAMPLE = ROOT / "skills/diagram-design/assets/example-line-dark.html"
 VARIANTS = ("", "-dark", "-full")
 VISUAL_TYPE_COUNT = 39
+AGENT_SKILLS_DESCRIPTION_MAX = 1024
 # Types whose selection-table name differs from its description vocabulary.
 DESCRIPTION_ALIASES = {
     "bar chart": "bar",
@@ -141,8 +142,18 @@ def selection_table_types(markdown: str) -> list[str]:
     return [name.strip() for name in names]
 
 
+def check_description_length(errors: list[str], markdown: str) -> None:
+    description = frontmatter_description(markdown)
+    if len(description) > AGENT_SKILLS_DESCRIPTION_MAX:
+        errors.append(
+            "SKILL.md frontmatter description exceeds the Agent Skills limit "
+            f"({len(description)} > {AGENT_SKILLS_DESCRIPTION_MAX} characters)"
+        )
+
+
 def check_description(errors: list[str]) -> None:
     markdown = SKILL.read_text(encoding="utf-8")
+    check_description_length(errors, markdown)
     description = normalized(frontmatter_description(markdown))
     if not description:
         errors.append("SKILL.md frontmatter description is missing")
