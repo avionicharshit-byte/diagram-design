@@ -91,6 +91,26 @@ def main() -> int:
             f"trust warning without a use limitation was not reported: {errors}"
         )
 
+    line_dark = (
+        ROOT / "skills/diagram-design/assets/example-line-dark.html"
+    ).read_text(encoding="utf-8")
+    errors = []
+    verify.check_line_dark_skin(errors, line_dark)
+    if errors:
+        raise AssertionError(f"canonical Line dark skin failed: {errors}")
+
+    errors = []
+    verify.check_line_dark_skin(
+        errors,
+        line_dark.replace("--color-paper:#2d3142", "--color-paper:#f5f5f5", 1),
+    )
+    expected = (
+        "example-line-dark.html lost canonical dark-skin token "
+        "'--color-paper:#2d3142'"
+    )
+    if errors != [expected]:
+        raise AssertionError(f"light-skin regression was not reported: {errors}")
+
     with tempfile.TemporaryDirectory(prefix="verify-docs-sync-") as temp_dir:
         skill = Path(temp_dir)
         references = skill / "references"
